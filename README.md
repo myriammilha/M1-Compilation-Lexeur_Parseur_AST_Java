@@ -55,10 +55,3 @@ Pour supprimer uniquement les fichiers générés :
 ```bash
 make clean
 ```
-
----
-
-## Remarque
-
-Les fichiers générés (`*.class`, fichiers Java produits par JavaCC)
-ne doivent pas être versionnés.
