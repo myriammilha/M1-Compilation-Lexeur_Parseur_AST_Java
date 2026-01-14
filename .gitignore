@@ -1,0 +1,25 @@
+# === Java ===
+*.class
+
+# === JavaCC generated files ===
+Compilateur.java
+CompilateurConstants.java
+CompilateurTokenManager.java
+Token.java
+TokenMgrError.java
+ParseException.java
+SimpleCharStream.java
+
+# === Build / temp ===
+*.log
+*.tmp
+
+# === IDE ===
+.idea/
+*.iml
+
+# === Archives ===
+*.zip
+
+# === OS ===
+.DS_Store
