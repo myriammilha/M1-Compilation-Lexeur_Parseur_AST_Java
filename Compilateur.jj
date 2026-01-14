@@ -1,0 +1,188 @@
+PARSER_BEGIN(Compilateur)
+import AST.*;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.List;
+import java.io.InputStream;
+
+public class Compilateur {
+    public static void main(String args[]) {
+        try {
+            // Ouvre le fichier "test.js" pour lecture
+            FileInputStream fis = new FileInputStream("test.js");
+            // Crée une instance du parseur
+            Compilateur parseur = new Compilateur(fis);
+            // Parse le fichier et obtient le programme
+            Programme programme = parseur.mainNT();
+            // Affiche le code assembleur généré
+            System.out.println("Assembly code  : \n" + programme.toAssembly() + "Halt");
+            System.out.println("C'est bien un programme correct !!");
+        } catch (FileNotFoundException e) {
+            System.out.println("Le fichier spécifié n'a pas été trouvé."+ e.toString());
+        } catch (TokenMgrError e) {
+            System.out.println("Le programme contient des erreur : " + e.toString());
+        } catch (ParseException e) {
+            System.out.println("Le programme contient des erreur : " +  e.toString());
+        }
+    }
+}
+PARSER_END(Compilateur)
+
+TOKEN :
+{
+      < FLOAT: (("0" | ["1"-"9"] (["0"-"9"])* )? "." (["0"-"9"])+ (("E" | "e") ("+" | "-")? (["0"-"9"])+)? ) | (["0"-"9"])+ (("E" | "e") ("+" | "-")? (["0"-"9"])+)>
+    | < NOMBRE: (["1"-"9"] (["0"-"9"])* | "0") (("E" | "e") ("+" | "-")? (["0"-"9"])+)?>
+    | < BOOLEAN: "true" | "false">
+    | <TRY: "try">
+    | <CATCH: "catch">
+    | <THROW: "throw">
+    | < NAN: "NaN">
+    | < SEMICOLON: ";" >
+    | < IMPORT: "import">
+    | < FUNCTION: "function">
+    | < IF: "if" >
+    | < RETURN: "return" >
+    | < UNDEFINED: "undefined" >
+    | < ELSE: "else" >
+    | < DO: "do" >
+    | < WHILE: "while" >
+    | < LET: "let" >
+    | < EOL: ";" | ";\n" >
+    | < ASSIGN: "=" >
+    | < PLUS: "+" >
+    | < MINUS: "-" >
+    | < MULTIPLY: "*" >
+    | < DIVIDE: "/" >
+    | < LPAREN: "(" >
+    | < RPAREN: ")" >
+    | < LBRACE: "{" >
+    | < RBRACE: "}" >
+    | < IDENT: (["a"-"z", "A"-"Z"])+ (["a"-"z", "A"-"Z", "0"-"9", "_"])* >
+}
+
+SKIP :
+{ " " | "\t" | "\n" | < "//" (~["\n", "\r"])* ("\n" | "\r" | "\r\n") > | < "/*" (~["*"])* "*" (~["/", "*"] (~["*"])* "*" )* "/" >}
+
+Programme mainNT() : {
+    Programme programme;
+} {
+    programme=programme() <EOF> { return programme; }
+}
+
+Programme programme() : {
+    List<Commande> programme = new ArrayList<Commande>();
+    Commande commande;
+} {
+    (
+        commande=commande() { programme.add(commande); }
+    )* {
+        return new Programme(programme);
+    }
+}
+
+Commande commande() : {
+    Token id;
+    ExpressionA expr;
+    Commande cmd1, cmd2;
+    Programme prg,prg2;
+    ArgsDeclaration args;
+
+} {
+    LOOKAHEAD(2) id=<IDENT> "=" expr=expression() <EOL> { return new Assignment(id.image, expr); }
+    | expr=expression() <EOL> { return expr; }
+    | <RETURN> expr=expression() <EOL> {return new Return(expr);}
+    | <IMPORT> expr=facteur() <EOL> { return new Import(expr); }
+    | <FUNCTION> id=<IDENT> <LPAREN> args=functionDecs() <RPAREN> cmd1=commande() {return new FunctionDec(id.image,args,cmd1);}
+    | <LBRACE> prg=programme() <RBRACE> { return new Bloc(prg); }
+    | <EOL> { return new EmptyCommand(); }
+    | <LET> id=<IDENT> <EOL> { return new Let(id.image); }
+    | <IF> <LPAREN> expr=expression() <RPAREN> cmd1=commande() <ELSE> cmd2=commande() { return new IfElseCommand(expr, cmd1, cmd2); }
+    | <DO> cmd1=commande() <WHILE> <LPAREN> expr=expression() <RPAREN> <EOL> { return new DoWhileCommand(cmd1, expr); }
+    | <TRY> <LBRACE> prg=programme() <RBRACE> <CATCH> <LPAREN> id=<IDENT> <RPAREN> <LBRACE> prg2=programme() <RBRACE> { return new Trycatch(prg,id.image,prg2);}
+    | <THROW> expr=expression() <EOL> {return new Throw(expr);}
+}
+
+ExpressionA expression() : {
+    ExpressionA gauche, droite;
+} {
+    gauche=comp() (
+        "==" droite=comp() { gauche = new Egal(gauche, droite); }
+        | ">=" droite=comp() { gauche = new GrEgNb(gauche, droite); }
+        | ">" droite=comp() { gauche = new GrStNb(gauche, droite); }
+        | "<" droite=comp() { gauche = new LoStNb(gauche, droite); }
+        | "<=" droite=comp() { gauche = new LoEqNb(gauche, droite); }
+        | "!=" droite=comp() { gauche = new NotEql(gauche, droite); }
+        | "&&" droite=comp() { gauche = new Et(gauche, droite); }
+    )* {
+        return gauche;
+    }
+}
+
+ExpressionA comp() : {
+    ExpressionA gauche, droite;
+} {
+    gauche=terme() (
+        "+" droite=terme() { gauche = new Plus(gauche, droite); }
+        | "-" droite=terme() { gauche = new Moins(gauche, droite); }
+    )* {
+        return gauche;
+    }
+}
+
+ExpressionA terme() : {
+    ExpressionA gauche, droite;
+} {
+    gauche=facteur() (
+        "*" droite=facteur() { gauche = new Mult(gauche, droite); }
+        | "/" droite=facteur() { gauche = new Div(gauche, droite); }
+        | "%" droite=facteur() { gauche = new Modulo(gauche, droite); }
+    )* {
+        return gauche;
+    }
+}
+
+ExpressionA facteur() : {
+    ExpressionA expr;
+    FunctionArguments lesArgs;
+    Token id;
+} {
+    LOOKAHEAD(2) id=<IDENT> "(" lesArgs=functionArgs() ")"  { return new FunctionCall(id.image, lesArgs); }
+  | "-" expr=facteur() { return new Neg(expr); }
+  | "!" expr=facteur() { return new Not(expr); }
+  | "(" expr=expression() ")" { return expr; }
+  | <NOMBRE> { return new Num(Integer.parseInt(token.image)); }
+  | <FLOAT> { return new FloatT(Float.parseFloat(token.image)); }
+  | <BOOLEAN> { return new Bool(Boolean.parseBoolean(token.image)); }
+  | <IDENT> { return new Ident(token.image); }
+  | <UNDEFINED> { return new Undefined(); }
+}
+
+FunctionArguments functionArgs() : {
+    List<ExpressionA> lesArgs = new ArrayList<ExpressionA>();
+    ExpressionA AnArg;
+} {
+    (
+        AnArg=expression() { lesArgs.add(AnArg); }
+        ( "," AnArg=expression() { lesArgs.add(AnArg); } )*
+    )? {
+        return new FunctionArguments(lesArgs);
+    }
+}
+ArgsDeclaration functionDecs() : {
+    List<String> lesArgsDec = new ArrayList<String>();
+    Token AnArg;
+} {
+    (
+        AnArg= <IDENT> { lesArgsDec.add(AnArg.image); }
+        ( "," AnArg=<IDENT> { lesArgsDec.add(AnArg.image); } )*
+    )? {
+        return new ArgsDeclaration(lesArgsDec);
+    }
+}
+
+
+
+
+
+
