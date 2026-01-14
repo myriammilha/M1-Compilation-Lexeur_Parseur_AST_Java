@@ -1,4 +1,4 @@
-# Projet 3 — Compilateur Java avec AST - M1 Compilation
+# Projet — Compilateur Java avec AST - M1 Compilation
 
 Ce projet implémente un compilateur pour un langage simple en Java.
 Il utilise **JavaCC** pour l’analyse lexicale et syntaxique, construit un
