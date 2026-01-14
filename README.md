@@ -13,7 +13,6 @@ Il utilise **JavaCC** pour l’analyse lexicale et syntaxique, construit un
 - `Makefile` : compilation, exécution et nettoyage
 - `mi-makefile.sh` : ancien script bash (optionnel)
 - `test.js` : exemple de programme source
-- `.idea/` : configuration IDE (à ignorer avec git)
 
 ---
 
